@@ -58,14 +58,16 @@ export async function connectWallet(): Promise<{
 
   await ensureBaseSepolia(raw);
 
-  const provider = new BrowserProvider(raw as unknown as Parameters<typeof BrowserProvider>[0]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const provider = new BrowserProvider(raw as any);
   return { provider, address };
 }
 
 /** Returns a Signer for the already-connected wallet. Call connectWallet() first. */
 export async function getSigner() {
   const raw = await getRawProvider();
-  const provider = new BrowserProvider(raw as unknown as Parameters<typeof BrowserProvider>[0]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const provider = new BrowserProvider(raw as any);
   return provider.getSigner();
 }
 
