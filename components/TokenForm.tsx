@@ -4,13 +4,12 @@ import { useMemo, useState } from "react";
 import {
   buildAssetCreateTx,
   buildMintTx,
-  decodeCreatedTokenFromReceipt,
   MAX_ASSET_DECIMALS,
   MIN_ASSET_DECIMALS,
   BASE_SEPOLIA,
 } from "@/lib/b20";
 import { connectWallet, getSigner } from "@/lib/wallet";
-import { waitForReceipt } from "@/lib/preview";
+import { waitForReceipt, previewAddress } from "@/lib/preview";
 import AddressPreview from "@/components/AddressPreview";
 import LaunchResult, { LaunchOutcome } from "@/components/LaunchResult";
 
@@ -105,15 +104,20 @@ export default function TokenForm({
       const createTx = await signer.sendTransaction({ to, data, gasLimit: 700_000n });
       const createReceipt = await waitForReceipt(createTx.hash);
       if (!createReceipt) throw new Error("Create transaction did not confirm.");
+      if (createReceipt.status === 0) {
+        throw new Error("Create transaction reverted on-chain.");
+      }
 
-      const tokenAddress = decodeCreatedTokenFromReceipt({
-        logs: createReceipt.logs.map((l) => ({
-          topics: l.topics as string[],
-          data: l.data,
-          address: l.address,
-        })),
-      });
-      if (!tokenAddress) throw new Error("Could not read the new token address from the receipt.");
+      // The token's address is deterministic from (variant, sender, salt) —
+      // no need to parse event logs (whose exact shape on a precompile we
+      // can't fully verify). Just ask the factory directly, the same way
+      // the live preview panel already does.
+      const tokenAddress = await previewAddress(signerAddress!, saltSeed);
+      if (!tokenAddress) {
+        throw new Error(
+          "Token created, but couldn't resolve its address. Check the create tx on the explorer."
+        );
+      }
 
       let mintHash: string | undefined;
       if (BigInt(initialSupplyUnits) > BigInt(0)) {
