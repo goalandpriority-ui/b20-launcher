@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
 
-const APP_URL = process.env.NEXT_PUBLIC_URL || "https://your-app.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_URL || "https://b20-launcher.vercel.app";
 
 export async function GET() {
   return NextResponse.json({
-    // Fill these three in after running `npx @farcaster/cli sign-manifest`
-    // (or the Warpcast "generate domain manifest" tool) against your real
-    // deployed domain. See README.md → "Publish to Farcaster".
     accountAssociation: {
-      header: "",
-      payload: "",
-      signature: "",
+      header: "eyJmaWQiOjIzODAwNiwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweGVmOTAzMTEwMTRBMWE3ZmY4MDMwNzlmQTVlOGIxMmQ3MjhGNjY0RUUifQ",
+      payload: "eyJkb21haW4iOiJiMjAtbGF1bmNoZXIudmVyY2VsLmFwcCJ9",
+      signature: "wrv05FqqWhdMnBLfak5DGmOUJdqXkr+1/Ji0d0a2tqdxgszPxT0jfjo3GWF3WkfEwy9gqHZBfiXhDECzcQhRVxw=",
     },
     miniapp: {
       version: "1",
@@ -19,13 +16,13 @@ export async function GET() {
       iconUrl: `${APP_URL}/icon.png`,
       splashImageUrl: `${APP_URL}/splash.png`,
       splashBackgroundColor: "#0A0E14",
-      subtitle: "Launch B20 tokens on Base Sepolia",
+      subtitle: "Launch tokens on Base Sepolia",
       description:
         "Forge a real B20 native token on Base Sepolia testnet in one transaction — no Solidity required.",
       primaryCategory: "developer-tools",
       tags: ["base", "b20", "testnet", "tokens", "developer-tools"],
       heroImageUrl: `${APP_URL}/embed-image.png`,
-      tagline: "Forge a testnet token in one tap",
+      tagline: "Forge a token in one tap",
       ogTitle: "B20 Forge",
       ogDescription: "Launch a B20 native token on Base Sepolia testnet.",
       ogImageUrl: `${APP_URL}/embed-image.png`,
