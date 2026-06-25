@@ -10,6 +10,7 @@ import {
   BASE_SEPOLIA,
 } from "@/lib/b20";
 import { connectWallet, getSigner } from "@/lib/wallet";
+import { waitForReceipt } from "@/lib/preview";
 import AddressPreview from "@/components/AddressPreview";
 import LaunchResult, { LaunchOutcome } from "@/components/LaunchResult";
 
@@ -102,7 +103,7 @@ export default function TokenForm({
 
       setOutcome({ stage: "creating" });
       const createTx = await signer.sendTransaction({ to, data, gasLimit: 700_000n });
-      const createReceipt = await createTx.wait();
+      const createReceipt = await waitForReceipt(createTx.hash);
       if (!createReceipt) throw new Error("Create transaction did not confirm.");
 
       const tokenAddress = decodeCreatedTokenFromReceipt({
@@ -123,7 +124,7 @@ export default function TokenForm({
           initialSupplyUnits
         );
         const mintTx = await signer.sendTransaction({ to: mintTo, data: mintData, gasLimit: 200_000n });
-        await mintTx.wait();
+        await waitForReceipt(mintTx.hash);
         mintHash = mintTx.hash;
       }
 
