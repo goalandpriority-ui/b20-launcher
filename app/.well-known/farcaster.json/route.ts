@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const APP_URL = process.env.NEXT_PUBLIC_URL || "https://b20-launcher.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_URL || "https://your-app.vercel.app";
 
 export async function GET() {
   return NextResponse.json({
