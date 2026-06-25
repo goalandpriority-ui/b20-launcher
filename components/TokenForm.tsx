@@ -101,11 +101,13 @@ export default function TokenForm({
       const signer = await getSigner();
 
       setOutcome({ stage: "creating" });
-      const createTx = await signer.sendTransaction({ to, data, gasLimit: 700_000n });
+      const createTx = await signer.sendTransaction({ to, data, gasLimit: 2_000_000n });
       const createReceipt = await waitForReceipt(createTx.hash);
       if (!createReceipt) throw new Error("Create transaction did not confirm.");
       if (createReceipt.status === 0) {
-        throw new Error("Create transaction reverted on-chain.");
+        throw new Error(
+          `Create transaction reverted on-chain. Check the exact reason at ${BASE_SEPOLIA.explorer}/tx/${createTx.hash}`
+        );
       }
 
       // The token's address is deterministic from (variant, sender, salt) —
@@ -127,7 +129,7 @@ export default function TokenForm({
           signerAddress!,
           initialSupplyUnits
         );
-        const mintTx = await signer.sendTransaction({ to: mintTo, data: mintData, gasLimit: 200_000n });
+        const mintTx = await signer.sendTransaction({ to: mintTo, data: mintData, gasLimit: 400_000n });
         await waitForReceipt(mintTx.hash);
         mintHash = mintTx.hash;
       }
