@@ -7,16 +7,35 @@
  * ever sign anything, just by reading the public Base Sepolia RPC.
  */
 
-import { Contract, JsonRpcProvider, keccak256, toUtf8Bytes } from "ethers";
+import { Contract, JsonRpcProvider, TransactionReceipt, keccak256, toUtf8Bytes } from "ethers";
 import { B20_FACTORY_ABI, B20_FACTORY_ADDRESS, BASE_SEPOLIA, B20Variant } from "./b20";
 
 let readProvider: JsonRpcProvider | null = null;
 
-function getReadProvider(): JsonRpcProvider {
+export function getReadProvider(): JsonRpcProvider {
   if (!readProvider) {
     readProvider = new JsonRpcProvider(BASE_SEPOLIA.rpcUrl, BASE_SEPOLIA.chainId);
   }
   return readProvider;
+}
+
+/**
+ * Many wallet providers (Farcaster's in-app wallet included) only implement
+ * the methods needed to sign and broadcast — not arbitrary reads like
+ * eth_getTransactionReceipt. ethers' tx.wait() calls that read against
+ * whichever provider sent the tx, so against those wallets it throws
+ * "provider does not support the requested method" even though the
+ * transaction itself went through fine. Polling our own public RPC instead
+ * sidesteps that entirely.
+ */
+export async function waitForReceipt(
+  hash: string,
+  timeoutMs = 120_000
+): Promise<TransactionReceipt> {
+  const provider = getReadProvider();
+  const receipt = await provider.waitForTransaction(hash, 1, timeoutMs);
+  if (!receipt) throw new Error("Transaction did not confirm in time.");
+  return receipt;
 }
 
 export function saltFromSeed(seed: string): string {
