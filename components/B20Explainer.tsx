@@ -1,19 +1,18 @@
 export default function B20Explainer() {
   return (
-    <div className="space-y-8 rounded-xl border border-line bg-panel/40 p-6 sm:p-8">
+    <div className="space-y-6 rounded-xl border border-line bg-panel/40 p-4 sm:p-8">
       <div>
-        <span className="font-mono text-xs uppercase tracking-wider text-forge">
-          03 · reference
-        </span>
-        <h2 className="mt-1 font-display text-2xl font-bold text-paper">
+        <h2 className="font-display text-xl font-bold text-paper sm:text-2xl">
           What B20 actually is
         </h2>
         <p className="mt-2 max-w-2xl text-sm text-mute">
-          Everything below is drawn from Base&apos;s own documentation and the
-          Beryl upgrade announcement, so you know exactly what you&apos;re
-          deploying — not marketing copy.
+          Drawn from Base&apos;s own documentation and the Beryl upgrade
+          announcement.
         </p>
       </div>
+
+      {/* rest of the Section blocks unchanged — keep your existing
+          "The short version" ... "Sources" sections exactly as before */}
 
       <Section title="The short version">
         <p>
