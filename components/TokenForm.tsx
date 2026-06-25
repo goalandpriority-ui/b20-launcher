@@ -101,7 +101,7 @@ export default function TokenForm({
       const signer = await getSigner();
 
       setOutcome({ stage: "creating" });
-      const createTx = await signer.sendTransaction({ to, data });
+      const createTx = await signer.sendTransaction({ to, data, gasLimit: 700_000n });
       const createReceipt = await createTx.wait();
       if (!createReceipt) throw new Error("Create transaction did not confirm.");
 
@@ -122,7 +122,7 @@ export default function TokenForm({
           signerAddress!,
           initialSupplyUnits
         );
-        const mintTx = await signer.sendTransaction({ to: mintTo, data: mintData });
+        const mintTx = await signer.sendTransaction({ to: mintTo, data: mintData, gasLimit: 200_000n });
         await mintTx.wait();
         mintHash = mintTx.hash;
       }
@@ -145,16 +145,11 @@ export default function TokenForm({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-      <div className="space-y-5 rounded-xl border border-line bg-panel/60 p-6">
-        <div>
-          <span className="font-mono text-xs uppercase tracking-wider text-forge">
-            02 · configure
-          </span>
-          <h3 className="mt-1 font-display text-lg font-semibold text-paper">
-            Token parameters
-          </h3>
-        </div>
+    <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="space-y-4 rounded-xl border border-line bg-panel/60 p-4 sm:p-6">
+        <h3 className="font-display text-base font-semibold text-paper sm:text-lg">
+          Token parameters
+        </h3>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Token name">
