@@ -11,6 +11,30 @@ export type LaunchOutcome = {
   symbol?: string;
 };
 
+const APP_URL = process.env.NEXT_PUBLIC_URL || "https://your-app.vercel.app";
+
+async function shareToFarcaster(symbol?: string) {
+  const text =
+    `🪙 Launch your own testnet B20 token on Base Sepolia — one tap, no Solidity.\n\n` +
+    `Just forged $${symbol ?? "MYTOKEN"} this way.\n\n` +
+    `Increase your testnet transactions while you're at it — early Base activity ` +
+    `is the kind of thing past Base airdrops have rewarded.`;
+
+  try {
+    const { sdk } = await import("@farcaster/miniapp-sdk");
+    await sdk.actions.composeCast({
+      text,
+      embeds: [APP_URL],
+    });
+  } catch {
+    // Not inside Farcaster — fall back to copying the text.
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      await navigator.clipboard.writeText(`${text}\n\n${APP_URL}`);
+      alert("Copied cast text + link — paste it into Warpcast.");
+    }
+  }
+}
+
 export default function LaunchResult({ outcome }: { outcome: LaunchOutcome | null }) {
   if (!outcome) {
     return (
@@ -54,11 +78,19 @@ export default function LaunchResult({ outcome }: { outcome: LaunchOutcome | nul
       )}
 
       {outcome.stage === "done" && (
-        <p className="text-sm text-paper">
-          {outcome.name} (${outcome.symbol}) is live on {BASE_SEPOLIA.name}. It
-          behaves like a normal ERC-20 everywhere — wallets, explorers, DEX
-          tooling — with no extra integration needed.
-        </p>
+        <>
+          <p className="text-sm text-paper">
+            {outcome.name} (${outcome.symbol}) is live on {BASE_SEPOLIA.name}. It
+            behaves like a normal ERC-20 everywhere — wallets, explorers, DEX
+            tooling — with no extra integration needed.
+          </p>
+          <button
+            onClick={() => shareToFarcaster(outcome.symbol)}
+            className="w-full rounded-lg bg-base px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-baselight"
+          >
+            Share to Farcaster →
+          </button>
+        </>
       )}
 
       {outcome.createTxHash && (
