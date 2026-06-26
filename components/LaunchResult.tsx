@@ -3,7 +3,7 @@
 import { BASE_SEPOLIA } from "@/lib/b20";
 
 export type LaunchOutcome = {
-  stage: "creating" | "minting" | "done";
+  stage: "creating" | "granting" | "capping" | "minting" | "done";
   tokenAddress?: string;
   createTxHash?: string;
   mintTxHash?: string;
@@ -60,7 +60,11 @@ export default function LaunchResult({ outcome }: { outcome: LaunchOutcome | nul
         <p className="text-sm text-paper">
           {outcome.stage === "creating"
             ? "Waiting for the createB20 transaction to confirm…"
-            : "Token created — minting initial supply to your wallet…"}
+            : outcome.stage === "granting"
+            ? "Token created — granting mint role…"
+            : outcome.stage === "capping"
+            ? "Setting the supply cap…"
+            : "Minting initial supply to your wallet…"}
         </p>
       )}
 
