@@ -18,10 +18,6 @@ import { AbiCoder, Interface, keccak256, toUtf8Bytes } from "ethers";
 
 const abiCoder = AbiCoder.defaultAbiCoder();
 
-/* ------------------------------------------------------------------------ */
-/*  Network                                                                  */
-/* ------------------------------------------------------------------------ */
-
 export const BASE_SEPOLIA = {
   chainId: 84532,
   chainIdHex: "0x14a34",
@@ -31,25 +27,13 @@ export const BASE_SEPOLIA = {
   faucet: "https://portal.cdp.coinbase.com/products/faucet",
 };
 
-/* ------------------------------------------------------------------------ */
-/*  Precompile addresses (canonical on every B20-active Base network)        */
-/* ------------------------------------------------------------------------ */
-
 export const B20_FACTORY_ADDRESS = "0xB20F000000000000000000000000000000000000";
 export const POLICY_REGISTRY_ADDRESS = "0x8453000000000000000000000000000000000002";
-
-/* ------------------------------------------------------------------------ */
-/*  Variant enum — order matters, it's the literal Solidity enum index       */
-/* ------------------------------------------------------------------------ */
 
 export enum B20Variant {
   ASSET = 0,
   STABLECOIN = 1,
 }
-
-/* ------------------------------------------------------------------------ */
-/*  Roles & limits (B20Constants.sol)                                        */
-/* ------------------------------------------------------------------------ */
 
 const roleId = (label: string) => keccak256(toUtf8Bytes(label));
 
@@ -66,17 +50,11 @@ export const B20_ROLES = {
 
 export const MIN_ASSET_DECIMALS = 6;
 export const MAX_ASSET_DECIMALS = 18;
-/** type(uint128).max — Base's official "no cap" sentinel. */
 export const MAX_SUPPLY_CAP = (BigInt(2) ** BigInt(128) - BigInt(1)).toString();
 
 const ASSET_PARAMS_VERSION = 1;
 const STABLECOIN_PARAMS_VERSION = 1;
 
-/* ------------------------------------------------------------------------ */
-/*  Minimal ABIs                                                             */
-/* ------------------------------------------------------------------------ */
-
-// IB20Factory — only the pieces this app calls.
 export const B20_FACTORY_ABI = [
   "function createB20(uint8 variant, bytes32 salt, bytes params, bytes[] initCalls) payable returns (address token)",
   "function getB20Address(uint8 variant, address sender, bytes32 salt) view returns (address)",
@@ -85,8 +63,6 @@ export const B20_FACTORY_ABI = [
   "event B20Created(address indexed token, uint8 indexed variant, string name, string symbol, uint8 decimals, bytes variantEventParams)",
 ];
 
-// IB20 / IB20Asset — the slice of the token's own interface this app calls
-// directly after creation (mint, balanceOf, role checks).
 export const B20_TOKEN_ABI = [
   "function name() view returns (string)",
   "function symbol() view returns (string)",
@@ -103,15 +79,6 @@ export const B20_TOKEN_ABI = [
 const factoryIface = new Interface(B20_FACTORY_ABI);
 const tokenIface = new Interface(B20_TOKEN_ABI);
 
-/* ------------------------------------------------------------------------ */
-/*  params encoders — mirrors B20FactoryLib.encode*CreateParams              */
-/* ------------------------------------------------------------------------ */
-
-/**
- * abi.encode(B20AssetCreateParams{ version, name, symbol, initialAdmin, decimals }).
- * Solidity structs ABI-encode exactly like the equivalent tuple of their
- * field types, in field order — so this matches byte-for-byte.
- */
 export function encodeAssetCreateParams(
   name: string,
   symbol: string,
@@ -124,9 +91,6 @@ export function encodeAssetCreateParams(
   );
 }
 
-/**
- * abi.encode(B20StablecoinCreateParams{ version, name, symbol, initialAdmin, currency }).
- */
 export function encodeStablecoinCreateParams(
   name: string,
   symbol: string,
@@ -139,35 +103,21 @@ export function encodeStablecoinCreateParams(
   );
 }
 
-/* ------------------------------------------------------------------------ */
-/*  initCalls encoders — mirrors B20FactoryLib.encode*                       */
-/* ------------------------------------------------------------------------ */
-
-/** abi.encodeCall(IB20.grantRole, (role, account)) */
 export function encodeGrantRole(role: string, account: string): string {
   return tokenIface.encodeFunctionData("grantRole", [role, account]);
 }
 
-/** abi.encodeCall(IB20.updateSupplyCap, (newSupplyCap)) */
 export function encodeUpdateSupplyCap(newSupplyCap: string | bigint): string {
   return tokenIface.encodeFunctionData("updateSupplyCap", [newSupplyCap]);
 }
-
-/* ------------------------------------------------------------------------ */
-/*  High-level builder: everything needed for one createB20 transaction      */
-/* ------------------------------------------------------------------------ */
 
 export interface BuildAssetTokenArgs {
   name: string;
   symbol: string;
   decimals: number;
-  /** Address that becomes DEFAULT_ADMIN_ROLE holder and MINT_ROLE holder. */
   admin: string;
-  /** Decimal string, e.g. "1000000" — already in token base units (NOT wei-scaled). */
   initialSupply: string;
-  /** undefined/empty => no cap (MAX_SUPPLY_CAP sentinel). Base-unit decimal string otherwise. */
   supplyCap?: string;
-  /** Random per-launch salt input; hashed to bytes32 internally. */
   saltSeed: string;
 }
 
@@ -182,10 +132,12 @@ export function buildAssetCreateTx(args: BuildAssetTokenArgs) {
       ? (BigInt(supplyCap) * scale).toString()
       : MAX_SUPPLY_CAP;
 
-  const initCalls: string[] = [
-    encodeGrantRole(B20_ROLES.MINT_ROLE, admin),
-    encodeUpdateSupplyCap(supplyCapUnits),
-  ];
+  // initCalls left empty deliberately: granting roles / setting the cap
+  // inside the atomic creation window reverted in testing (likely an
+  // access-control check against the admin role before it's fully active).
+  // Doing those as separate, explicit follow-up transactions — each signed
+  // directly by the admin — sidesteps that entirely.
+  const initCalls: string[] = [];
 
   const salt = keccak256(toUtf8Bytes(saltSeed));
 
@@ -203,10 +155,24 @@ export function buildAssetCreateTx(args: BuildAssetTokenArgs) {
     data,
     salt,
     initialSupplyUnits,
+    supplyCapUnits,
   };
 }
 
-/** Encodes the follow-up mint(admin, initialSupplyUnits) call on the new token. */
+export function buildGrantRoleTx(tokenAddress: string, role: string, account: string) {
+  return {
+    to: tokenAddress,
+    data: tokenIface.encodeFunctionData("grantRole", [role, account]),
+  };
+}
+
+export function buildUpdateSupplyCapTx(tokenAddress: string, newSupplyCap: string) {
+  return {
+    to: tokenAddress,
+    data: tokenIface.encodeFunctionData("updateSupplyCap", [newSupplyCap]),
+  };
+}
+
 export function buildMintTx(tokenAddress: string, to: string, amountUnits: string) {
   return {
     to: tokenAddress,
@@ -214,7 +180,6 @@ export function buildMintTx(tokenAddress: string, to: string, amountUnits: strin
   };
 }
 
-/** Decodes the token address out of a createB20 transaction receipt's logs. */
 export function decodeCreatedTokenFromReceipt(receipt: {
   logs: { topics: string[]; data: string; address: string }[];
 }): string | null {
