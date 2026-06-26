@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import {
   buildAssetCreateTx,
+  buildGrantRoleTx,
+  buildUpdateSupplyCapTx,
   buildMintTx,
+  B20_ROLES,
   MAX_ASSET_DECIMALS,
   MIN_ASSET_DECIMALS,
   BASE_SEPOLIA,
@@ -88,7 +91,7 @@ export default function TokenForm({
         onAddressChange(signerAddress);
       }
 
-      const { to, data, initialSupplyUnits } = buildAssetCreateTx({
+      const { to, data, initialSupplyUnits, supplyCapUnits } = buildAssetCreateTx({
         name: name.trim(),
         symbol: symbolClean,
         decimals,
@@ -101,7 +104,7 @@ export default function TokenForm({
       const signer = await getSigner();
 
       setOutcome({ stage: "creating" });
-      const createTx = await signer.sendTransaction({ to, data, gasLimit: 2_000_000n });
+      const createTx = await signer.sendTransaction({ to, data, gasLimit: 1_000_000n });
       const createReceipt = await waitForReceipt(createTx.hash);
       if (!createReceipt) throw new Error("Create transaction did not confirm.");
       if (createReceipt.status === 0) {
@@ -121,6 +124,34 @@ export default function TokenForm({
         );
       }
 
+      // Grant MINT_ROLE to the admin (separate tx, signed directly by the
+      // admin — avoids the access-control ordering issue initCalls hit).
+      setOutcome({ stage: "granting", tokenAddress, createTxHash: createTx.hash });
+      const { to: grantTo, data: grantData } = buildGrantRoleTx(
+        tokenAddress,
+        B20_ROLES.MINT_ROLE,
+        signerAddress!
+      );
+      const grantTx = await signer.sendTransaction({ to: grantTo, data: grantData, gasLimit: 150_000n });
+      const grantReceipt = await waitForReceipt(grantTx.hash);
+      if (grantReceipt.status === 0) {
+        throw new Error(
+          `Granting MINT_ROLE reverted. Check ${BASE_SEPOLIA.explorer}/tx/${grantTx.hash}`
+        );
+      }
+
+      // Set the supply cap (always explicit — even "no cap" is the
+      // documented uint128-max sentinel, not a default).
+      setOutcome({ stage: "capping", tokenAddress, createTxHash: createTx.hash });
+      const { to: capTo, data: capData } = buildUpdateSupplyCapTx(tokenAddress, supplyCapUnits);
+      const capTx = await signer.sendTransaction({ to: capTo, data: capData, gasLimit: 150_000n });
+      const capReceipt = await waitForReceipt(capTx.hash);
+      if (capReceipt.status === 0) {
+        throw new Error(
+          `Setting the supply cap reverted. Check ${BASE_SEPOLIA.explorer}/tx/${capTx.hash}`
+        );
+      }
+
       let mintHash: string | undefined;
       if (BigInt(initialSupplyUnits) > BigInt(0)) {
         setOutcome({ stage: "minting", tokenAddress, createTxHash: createTx.hash });
@@ -129,8 +160,11 @@ export default function TokenForm({
           signerAddress!,
           initialSupplyUnits
         );
-        const mintTx = await signer.sendTransaction({ to: mintTo, data: mintData, gasLimit: 400_000n });
-        await waitForReceipt(mintTx.hash);
+        const mintTx = await signer.sendTransaction({ to: mintTo, data: mintData, gasLimit: 200_000n });
+        const mintReceipt = await waitForReceipt(mintTx.hash);
+        if (mintReceipt.status === 0) {
+          throw new Error(`Mint reverted. Check ${BASE_SEPOLIA.explorer}/tx/${mintTx.hash}`);
+        }
         mintHash = mintTx.hash;
       }
 
@@ -296,8 +330,8 @@ export default function TokenForm({
         </button>
         {error && <p className="text-sm text-forge">{error}</p>}
         <p className="text-xs text-mute">
-          Two signatures: one calls the B20 Factory to create your token,
-          one mints the initial supply to your wallet. Both run on{" "}
+          Up to four signatures: create the token, grant yourself mint
+          rights, set the supply cap, then mint the initial supply. All on{" "}
           {BASE_SEPOLIA.name} — testnet ETH only.
         </p>
       </div>
